@@ -1,0 +1,12 @@
+{
+  "name": "interview-prep-project",
+  "private": true,
+  "workspaces": [
+    "Backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace Backend run dev",
+    "dev:frontend": "npm --workspace frontend run dev"
+  }
+}

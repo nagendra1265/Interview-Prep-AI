@@ -1,0 +1,100 @@
+@use"./features/auth/styles/button.scss";
+
+:root,
+:root[data-theme="light"] {
+    color-scheme: light;
+    --app-bg: #f5f7fb;
+    --app-fg: #172033;
+    --surface: #ffffff;
+    --surface-subtle: #fbfcfe;
+    --border: #e4e8f0;
+    --muted: #58647a;
+    --muted-soft: #7b8498;
+    --accent: #4f46c8;
+    --accent-hover: #4038aa;
+    --accent-soft: #eeedff;
+    --accent-contrast: #4038aa;
+    --accent-button-text: #ffffff;
+    --focus-ring: rgba(79, 70, 200, 0.2);
+    --danger: #b42318;
+    --score-bg: #edf9f0;
+    --score-fg: #187343;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --app-bg: #11141b;
+    --app-fg: #eef1f8;
+    --surface: #1a1f29;
+    --surface-subtle: #202633;
+    --border: #343c4b;
+    --muted: #b0b8c9;
+    --muted-soft: #98a2b5;
+    --accent: #938cff;
+    --accent-hover: #a7a1ff;
+    --accent-soft: #302e50;
+    --accent-contrast: #c2bdff;
+    --accent-button-text: #17152f;
+    --focus-ring: rgba(147, 140, 255, 0.3);
+    --danger: #ff9a91;
+    --score-bg: #19372c;
+    --score-fg: #91e0b5;
+}
+
+*{
+    margin: 0%;
+    padding: 0%;
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root{
+    width: 100%;
+    min-height: 100%;
+    background-color: var(--app-bg);
+    color: var(--app-fg);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif
+}
+
+body,
+#root {
+    min-height: 100vh;
+}
+
+body,
+button,
+input,
+textarea {
+    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.theme-toggle {
+    position: fixed;
+    z-index: 20;
+    top: 18px;
+    right: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--app-fg);
+    box-shadow: 0 5px 18px rgba(20, 28, 45, 0.08);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 650;
+    cursor: pointer;
+
+    &:hover {
+        border-color: var(--accent);
+    }
+
+    span:first-child {
+        color: var(--accent);
+        font-size: 1.15rem;
+    }
+}
