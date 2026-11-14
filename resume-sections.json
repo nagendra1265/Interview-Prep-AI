@@ -1,0 +1,14 @@
+{
+  "summary": {"title":"Professional Summary","fields":{"text":"Summary"}},
+  "education": {"title":"Education","fields":{"degree":"Degree","specialization":"Specialization","institution":"Institution","date":"Graduation or expected date","gpa":"GPA","coursework":"Relevant coursework","details":"Additional academic details"}},
+  "skills": {"title":"Skills","fields":{"category":"Category","skills":"Skills"}},
+  "projects": {"title":"Projects","fields":{"name":"Project name","technologies":"Technologies","contribution":"Contribution","outcome":"Outcome","link":"Repository or demo link"}},
+  "experience": {"title":"Experience","fields":{"title":"Job title","organization":"Organization","dates":"Dates","details":"Contributions and results"}},
+  "certifications": {"title":"Certifications and Courses","fields":{"name":"Credential or course","issuer":"Issuing organization","date":"Completion date","link":"Credential link"}},
+  "leadership": {"title":"Leadership and Extracurricular Activities","fields":{"role":"Role","organization":"Club or organization","dates":"Dates","details":"Activities and contributions"}},
+  "honors": {"title":"Honors and Achievements","fields":{"name":"Award or recognition","issuer":"Issuer","year":"Year","details":"Context"}},
+  "volunteer": {"title":"Volunteer Experience","fields":{"role":"Role","organization":"Organization","dates":"Dates","details":"Contributions"}},
+  "research": {"title":"Research and Publications","fields":{"title":"Title","venue":"Institution or publication","date":"Date","details":"Contribution","link":"Link"}},
+  "languages": {"title":"Languages","fields":{"name":"Language","proficiency":"Proficiency"}},
+  "memberships": {"title":"Professional Memberships","fields":{"organization":"Organization","role":"Membership or role","dates":"Dates"}}
+}

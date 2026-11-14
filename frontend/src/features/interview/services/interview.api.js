@@ -5,10 +5,10 @@ const api = axios.create({
     withCredentials: true
 });
 
-export async function createInterviewReport({ jobDescription, selfDescription, resumeFile }) {
+export async function createInterviewReport({ jobDescription, selfDescription, resumeFile, jobDescriptionPdf, selfDescriptionPdf }) {
     const formData = new FormData();
-    formData.append("jobDescription", jobDescription);
-    formData.append("selfDescription", selfDescription);
+    formData.append(jobDescriptionPdf ? "jobDescriptionPdf" : "jobDescription", jobDescriptionPdf || jobDescription);
+    formData.append(selfDescriptionPdf ? "selfDescriptionPdf" : "selfDescription", selfDescriptionPdf || selfDescription);
     formData.append("resume", resumeFile);
 
     const response = await api.post("/api/interview/", formData);
@@ -32,3 +32,9 @@ export async function downloadInterviewReportPdf(interviewId) {
     return response.data;
 }
 
+
+export async function practiceTechnicalAnswer(reportId, questionId, answer) {
+    const url = `/api/interview/report/${reportId}/technical/${questionId}`;
+    const response = answer === undefined ? await api.get(url) : await api.post(url, { answer });
+    return response.data;
+}

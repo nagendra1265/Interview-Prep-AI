@@ -115,6 +115,7 @@ const interviewReportSchema = new mongoose.Schema({
         min: 0,
         max: 100,
     },
+    matchBreakdown: { type: mongoose.Schema.Types.Mixed },
     technicalQuestions: [ technicalQuestionSchema ],
     behavioralQuestions: [ behavioralQuestionSchema ],
     skillGaps: [ skillGapSchema ],

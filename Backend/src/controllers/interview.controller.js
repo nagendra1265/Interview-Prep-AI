@@ -2,37 +2,105 @@ const pdfParse= require("pdf-parse")
 const PDFDocument = require("pdfkit")
 const generateInterviewReport =require("../services/ai.service")
 const interviewReportModel = require("../models/interviewReport.model")
+const calculateMatchScore = require("../services/match-score")
 const mongoose = require("mongoose")
 
+function reportForPractice(report) {
+    return {
+        ...report,
+        technicalQuestions: report.technicalQuestions.map(({ question, intention }, index) => ({
+            question, intention, id: index
+        }))
+    }
+}
+
+async function practiceTechnicalQuestion(req, res) {
+    const { interviewId, questionId } = req.params
+    if (!mongoose.isObjectIdOrHexString(interviewId) || !/^\d+$/.test(questionId)) {
+        return res.status(404).json({ message: "Technical question not found." })
+    }
+    const report = await interviewReportModel.findOne({ _id: interviewId, user: req.user.id })
+        .select("technicalQuestions").lean()
+    const question = report?.technicalQuestions?.[Number(questionId)]
+    if (!question) return res.status(404).json({ message: "Technical question not found." })
+    if (req.method === "GET") return res.json({ referenceAnswer: question.answer })
+
+    const answer = req.body?.answer
+    if (typeof answer !== "string" || !answer.trim() || answer.length > 4000) {
+        return res.status(400).json({ message: "Enter an answer of up to 4,000 characters." })
+    }
+    try {
+        const feedback = await generateInterviewReport.evaluateTechnicalAnswer(question, answer.trim())
+        return res.json({ referenceAnswer: question.answer, feedback })
+    } catch (error) {
+        console.error("Technical answer evaluation failed:", error.name)
+        return res.status(502).json({ message: "Could not check your answer. Try again or show the reference answer." })
+    }
+}
+
+async function readPdfText(file, label) {
+    const parser = new pdfParse.PDFParse(Uint8Array.from(file.buffer))
+    let text
+    try {
+        text = (await parser.getText()).text.trim()
+    } catch {
+        throw new Error(`Could not read the ${label} PDF. Choose a readable PDF.`)
+    } finally {
+        await parser.destroy()
+    }
+    if (!text) throw new Error(`The ${label} PDF has no readable text.`)
+    return text
+}
+
+async function readDescription(req, field, label) {
+    const file = req.files?.[`${field}Pdf`]?.[0]
+    if (file) {
+        try {
+            return await readPdfText(file, label)
+        } catch (error) {
+            throw new Error(`${error.message} You can paste the text instead.`)
+        }
+    }
+    const text = req.body?.[field]
+    if (typeof text !== "string" || !text.trim()) {
+        throw new Error(`Enter the ${label} or upload a PDF.`)
+    }
+    return text.trim()
+}
+
 async function generateInterviewReportController(req, res){
-    if (!req.file) {
+    const resumeFile = req.files?.resume?.[0]
+    if (!resumeFile) {
         return res.status(400).json({ message: "A resume PDF is required in the 'resume' field." })
     }
 
-    const { selfDescription, jobDescription } = req.body
-    if (!jobDescription || !selfDescription) {
-        return res.status(400).json({ message: "Both selfDescription and jobDescription are required." })
+    let resume, jobDescription, selfDescription
+    try {
+        jobDescription = await readDescription(req, "jobDescription", "job description")
+        selfDescription = await readDescription(req, "selfDescription", "self-description")
+        resume = await readPdfText(resumeFile, "resume")
+    } catch (error) {
+        return res.status(400).json({ message: error.message })
     }
 
-    const resumeContent = await (new pdfParse.PDFParse(Uint8Array.from(req.file.buffer))).getText()
-
-    const interviewReportByAi = await generateInterviewReport({
-        resume: resumeContent.text,
+    const { requirements, evidence, ...interviewReportByAi } = await generateInterviewReport({
+        resume,
         selfDescription,
         jobDescription
     })
 
     const interviewReport = await interviewReportModel.create({
         user: req.user.id,
-        resume: resumeContent.text,
+        resume,
         selfDescription,
         jobDescription,
-        ...interviewReportByAi
+        ...interviewReportByAi,
+        ...calculateMatchScore(requirements, evidence, { resume, selfDescription })
     })
 
     res.status(201).json({
         message:"Interview report generated successfully",
-        interviewReport
+        interviewReport: reportForPractice(interviewReport.toObject())
     })
 
 }
@@ -40,10 +108,13 @@ async function generateInterviewReportController(req, res){
 async function getAllInterviewReportsController(req, res) {
     const interviewReports = await interviewReportModel
         .find({ user: req.user.id })
-        .select("title matchScore createdAt updatedAt")
+        .select("title matchScore matchBreakdown createdAt updatedAt")
         .sort({ createdAt: -1 })
 
-    return res.status(200).json({ interviewReports })
+    return res.status(200).json({ interviewReports: interviewReports.map(report => ({
+        _id: report._id, title: report.title, matchScore: report.matchScore,
+        hasSkillScore: Boolean(report.matchBreakdown), createdAt: report.createdAt, updatedAt: report.updatedAt
+    })) })
 }
 
 async function getInterviewReportByIdController(req, res) {
@@ -61,7 +132,7 @@ async function getInterviewReportByIdController(req, res) {
         return res.status(404).json({ message: "Interview report not found." })
     }
 
-    return res.status(200).json({ interviewReport })
+    return res.status(200).json({ interviewReport: reportForPractice(interviewReport.toObject()) })
 }
 
 async function downloadInterviewReportPdfController(req, res, next) {
@@ -94,7 +165,7 @@ async function downloadInterviewReportPdfController(req, res, next) {
     pdf.fillColor("#29245f").fontSize(22).text(report.title || "Interview Preparation Report")
     pdf.moveDown(0.4)
     pdf.fillColor("#333333").fontSize(11)
-        .text(`Match score: ${report.matchScore ?? "Not available"}%`)
+        .text(`${report.matchBreakdown ? "Skill match" : "AI match estimate"}: ${report.matchScore == null ? "Unavailable" : `${report.matchScore}%`}`)
         .text(`Generated: ${report.createdAt.toLocaleDateString()}`)
     pdf.moveDown()
 
@@ -104,7 +175,7 @@ async function downloadInterviewReportPdfController(req, res, next) {
         pdf.moveDown(0.25)
     }
 
-    function addQuestions(heading, questions) {
+    function addQuestions(heading, questions, includeAnswers = true) {
         addSection(heading)
         if (!questions?.length) {
             pdf.fillColor("#555555").fontSize(10).text("No entries available.")
@@ -115,12 +186,12 @@ async function downloadInterviewReportPdfController(req, res, next) {
             pdf.fillColor("#222222").fontSize(11).text(`${index + 1}. ${item.question || "Question"}`)
             pdf.fillColor("#555555").fontSize(9)
                 .text(`Intention: ${item.intention || "Not provided"}`)
-                .text(`Answer guidance: ${item.answer || "Not provided"}`)
+            if (includeAnswers) pdf.text(`Answer guidance: ${item.answer || "Not provided"}`)
             pdf.moveDown(0.45)
         })
     }
 
-    addQuestions("Technical questions", report.technicalQuestions)
+    addQuestions("Technical questions", report.technicalQuestions, false)
     addQuestions("Behavioral questions", report.behavioralQuestions)
 
     addSection("Skill gaps")
@@ -149,6 +220,7 @@ async function downloadInterviewReportPdfController(req, res, next) {
 }
 
 module.exports = {
+    practiceTechnicalQuestion,
     generateInterviewReportController,
     getAllInterviewReportsController,
     getInterviewReportByIdController,

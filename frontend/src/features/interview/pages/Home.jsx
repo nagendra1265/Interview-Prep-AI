@@ -4,7 +4,8 @@ import {
     createInterviewReport,
     downloadInterviewReportPdf,
     getInterviewReportById,
-    getMyInterviewReports
+    getMyInterviewReports,
+    practiceTechnicalAnswer
 } from "../services/interview.api";
 import "../services/home.scss";
 
@@ -17,7 +18,58 @@ function ReportSection({ title, children }) {
     );
 }
 
-function QuestionList({ questions }) {
+function TechnicalPractice({ reportId, questionId }) {
+    const [answer, setAnswer] = useState("");
+    const [result, setResult] = useState(null);
+    const [pending, setPending] = useState(false);
+    const [error, setError] = useState("");
+
+    async function requestFeedback(candidateAnswer) {
+        setPending(true);
+        setError("");
+        try {
+            setResult(await practiceTechnicalAnswer(reportId, questionId, candidateAnswer));
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Could not load the answer.");
+        } finally {
+            setPending(false);
+        }
+    }
+
+    return (
+        <div className="technical-practice">
+            <label className="form-field">
+                <span>Your answer</span>
+                <textarea rows={4} maxLength={4000} value={answer} disabled={pending}
+                    onChange={event => setAnswer(event.target.value)} />
+            </label>
+            <div className="technical-practice__actions">
+                <button type="button" disabled={pending || !answer.trim()} onClick={() => requestFeedback(answer)}>Check my answer</button>
+                {!result && <button type="button" disabled={pending} onClick={() => requestFeedback()}>Show answer</button>}
+            </div>
+            {pending && <p role="status">Loading...</p>}
+            {error && <p role="alert">{error}</p>}
+            {result && (
+                <div className="technical-practice__result" aria-live="polite">
+                    {result.feedback && [
+                        ["What you got right", result.feedback.correctPoints],
+                        ["Mistakes or missing points", result.feedback.missedPoints],
+                        ["How to improve", result.feedback.improvements]
+                    ].map(([label, points]) => points.length > 0 && (
+                        <div key={label}>
+                            <h4>{label}</h4>
+                            <ul>{points.map((point, index) => <li key={index}>{point}</li>)}</ul>
+                        </div>
+                    ))}
+                    <h4>Reference answer</h4>
+                    <p>{result.referenceAnswer}</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function QuestionList({ questions, reportId }) {
     if (!questions?.length) return <p className="report-empty">No questions were returned.</p>;
 
     return (
@@ -28,7 +80,8 @@ function QuestionList({ questions }) {
                         <summary>{item.question}</summary>
                         <div className="question-card__details">
                             <p><strong>What it assesses:</strong> {item.intention}</p>
-                            <p><strong>Answer guidance:</strong> {item.answer}</p>
+                            {reportId ? <TechnicalPractice reportId={reportId} questionId={item.id} /> :
+                                <p><strong>Answer guidance:</strong> {item.answer}</p>}
                         </div>
                     </details>
                 </li>
@@ -37,9 +90,35 @@ function QuestionList({ questions }) {
     );
 }
 
+function DescriptionField({ label, placeholder, rows, text, setText, pdfMode, setPdfMode, pdf, setPdf }) {
+    return (
+        <div className="form-field">
+            <label className="form-field">
+                <span>{label}{pdfMode && <small> (PDF, maximum 3 MB)</small>}</span>
+                {pdfMode ? (
+                    <input type="file" accept="application/pdf,.pdf" required={!pdf} onChange={event => setPdf(event.target.files?.[0] || null)} />
+                ) : (
+                    <textarea value={text} onChange={event => setText(event.target.value)} placeholder={placeholder} rows={rows} required />
+                )}
+            </label>
+            {pdfMode && pdf && <small>{pdf.name}</small>}
+            <label>
+                <input type="checkbox" checked={pdfMode} onChange={event => {
+                    setPdfMode(event.target.checked);
+                    setPdf(null);
+                }} /> Upload PDF instead for {label.toLowerCase()}
+            </label>
+        </div>
+    );
+}
+
 export default function Home() {
     const [jobDescription, setJobDescription] = useState("");
     const [selfDescription, setSelfDescription] = useState("");
+    const [jobPdfMode, setJobPdfMode] = useState(false);
+    const [selfPdfMode, setSelfPdfMode] = useState(false);
+    const [jobDescriptionPdf, setJobDescriptionPdf] = useState(null);
+    const [selfDescriptionPdf, setSelfDescriptionPdf] = useState(null);
     const [resumeFile, setResumeFile] = useState(null);
     const resumeInputRef = useRef(null);
     const [report, setReport] = useState(null);
@@ -47,7 +126,7 @@ export default function Home() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [pdfLoading, setPdfLoading] = useState(false);
-    const canGenerate = Boolean(jobDescription.trim() && selfDescription.trim() && resumeFile);
+    const canGenerate = Boolean((jobPdfMode ? jobDescriptionPdf : jobDescription.trim()) && (selfPdfMode ? selfDescriptionPdf : selfDescription.trim()) && resumeFile);
 
     function handleRemoveResume() {
         setResumeFile(null);
@@ -87,6 +166,8 @@ export default function Home() {
             const data = await createInterviewReport({
                 jobDescription,
                 selfDescription,
+                jobDescriptionPdf,
+                selfDescriptionPdf,
                 resumeFile
             });
             setReport(data.interviewReport);
@@ -146,27 +227,12 @@ export default function Home() {
             </header>
 
             <form className="interview-form" onSubmit={handleSubmit}>
-                <label className="form-field">
-                    <span>Job description</span>
-                    <textarea
-                        value={jobDescription}
-                        onChange={(event) => setJobDescription(event.target.value)}
-                        placeholder="Paste the job description here"
-                        rows={8}
-                        required
-                    />
-                </label>
-
-                <label className="form-field">
-                    <span>Your background</span>
-                    <textarea
-                        value={selfDescription}
-                        onChange={(event) => setSelfDescription(event.target.value)}
-                        placeholder="Describe your experience, strengths, and areas you want to improve"
-                        rows={5}
-                        required
-                    />
-                </label>
+                <DescriptionField label="Job description" placeholder="Paste the job description here" rows={8}
+                    text={jobDescription} setText={setJobDescription} pdfMode={jobPdfMode}
+                    setPdfMode={setJobPdfMode} pdf={jobDescriptionPdf} setPdf={setJobDescriptionPdf} />
+                <DescriptionField label="Your background" placeholder="Describe your experience, strengths, and areas you want to improve" rows={5}
+                    text={selfDescription} setText={setSelfDescription} pdfMode={selfPdfMode}
+                    setPdfMode={setSelfPdfMode} pdf={selfDescriptionPdf} setPdf={setSelfDescriptionPdf} />
 
                 <label className="form-field">
                     <span>Resume PDF <small>(maximum 3 MB)</small></span>
@@ -212,7 +278,7 @@ export default function Home() {
                                         <small>{new Date(savedReport.createdAt).toLocaleDateString()}</small>
                                     </span>
                                     <span className="saved-reports__score">
-                                        {savedReport.matchScore ?? "--"}% match
+                                        {savedReport.matchScore == null ? "Score unavailable" : `${savedReport.matchScore}% ${savedReport.hasSkillScore || savedReport.matchBreakdown ? "skill match" : "AI estimate"}`}
                                     </span>
                                 </button>
                             </li>
@@ -236,15 +302,33 @@ export default function Home() {
                             <p className="eyebrow">YOUR REPORT</p>
                             <h2>{report.title || "Interview preparation report"}</h2>
                         </div>
-                        <p className="score-badge">Match score: {report.matchScore ?? "--"}%</p>
+                        <p className="score-badge">{report.matchBreakdown ? "Skill match" : "AI match estimate"}: {report.matchScore == null ? "Unavailable" : `${report.matchScore}%`}</p>
                         <button className="download-button" type="button" onClick={handleDownloadPdf} disabled={pdfLoading}>
                             {pdfLoading ? "Preparing PDF..." : "Download PDF"}
                         </button>
                     </header>
 
+                    {report.matchBreakdown && <ReportSection title="Skill match breakdown">
+                        {["required", "preferred"].map(group => {
+                            const skills = report.matchBreakdown[group];
+                            if (!skills.length) return null;
+                            return <div key={group}>
+                                <h4>{group === "required" ? "Required skills" : "Preferred skills"}</h4>
+                                <ul className="gap-list">
+                                    {skills.map(({ skill, level, quote, source }) => (
+                                        <li key={skill}>
+                                            <strong>{skill}</strong> · {level}
+                                            {quote && <p>{source === "resume" ? "Résumé" : "Self-description"}: “{quote}”</p>}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>;
+                        })}
+                        {report.matchScore == null && <p>No skill requirements were identified.</p>}
+                    </ReportSection>}
                     <ReportSection title="Technical questions">
                         <p className="report-hint">Select a question to see its assessment and answer guidance.</p>
-                        <QuestionList questions={report.technicalQuestions} />
+                        <QuestionList key={report._id} questions={report.technicalQuestions} reportId={report._id} />
                     </ReportSection>
 
                     <ReportSection title="Behavioral questions">

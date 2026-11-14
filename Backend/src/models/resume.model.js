@@ -5,12 +5,15 @@ const resumeSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "users",
         required: true,
-        unique: true
+        index: true
     },
+    label: { type: String, default: "" },
     fullName: { type: String, default: "" },
     email: { type: String, default: "" },
     phone: { type: String, default: "" },
     location: { type: String, default: "" },
+    linkedin: { type: String, default: "" },
+    sections: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     links: { type: String, default: "" },
     summary: { type: String, default: "" },
     experience: { type: String, default: "" },

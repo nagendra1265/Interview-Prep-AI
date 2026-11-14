@@ -5,17 +5,25 @@ const api = axios.create({
     withCredentials: true
 });
 
-export async function getMyResume() {
-    const response = await api.get("/api/resume/");
-    return response.data;
+export async function listMyResumes() {
+    const response = await api.get("/api/resume");
+    return response.data.resumes;
+}
+
+export async function getMyResume(id) {
+    const response = await api.get(`/api/resume/${id}`);
+    return response.data.resume;
 }
 
 export async function saveMyResume(resume) {
-    const response = await api.put("/api/resume/", resume);
-    return response.data;
+    const { _id, ...fields } = resume;
+    const response = _id
+        ? await api.put(`/api/resume/${_id}`, fields)
+        : await api.post("/api/resume", fields);
+    return response.data.resume;
 }
 
-export async function downloadMyResumePdf() {
-    const response = await api.get("/api/resume/pdf", { responseType: "blob" });
+export async function downloadMyResumePdf(id) {
+    const response = await api.get(`/api/resume/${id}/pdf`, { responseType: "blob" });
     return response.data;
 }

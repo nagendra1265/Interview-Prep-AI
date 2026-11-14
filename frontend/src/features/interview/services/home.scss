@@ -450,3 +450,46 @@
         }
     }
 }
+
+.technical-practice {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+
+    textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-subtle);
+        color: var(--app-fg);
+        font: inherit;
+        resize: vertical;
+    }
+
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+
+        button {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface-subtle);
+            color: var(--app-fg);
+            font: inherit;
+            cursor: pointer;
+
+            &:disabled { opacity: 0.55; cursor: default; }
+        }
+    }
+
+    &__result {
+        display: grid;
+        gap: 8px;
+
+        ul { padding-inline-start: 20px; list-style: disc; }
+        p { white-space: pre-wrap; }
+    }
+}
